@@ -4,19 +4,12 @@
 
 # assume cash flows are annual and annual interest rate = r
 
-discount_rate <- function(r, t, fixed) {
+discount_rate <- function(r, t) {
   # calculates discount rate up to time T
   # r = interest rate(s)
   # t = time periods
-  if(fixed == T) {
-    return(1/((1 + r)^t)) 
-  } else {
-    for(i in 1:length(r)) {
-      d_rate = sum(1/(1 + r[i])^i)
-    }
-    return(d_rate)
-  }
-  # make sure to handle errors where fixed and length(r) don't agree
+  return(1/((1 + r)^t)) 
+
 }
 
 present_value <- function(c, r, t, fixed) {
@@ -41,4 +34,3 @@ present_value <- function(c, r, t, fixed) {
   
   return(ct)
 }
-
