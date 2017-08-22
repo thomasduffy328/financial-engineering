@@ -8,8 +8,7 @@ OnePeriod <- function(S, u, R, c = 0, strike, call) {
   price <- 0
   
   if((d + c > R) | (R > u + c)) {
-    # change this to throw an error
-    output[1] <- "There exists an arbitrage"
+   stop("There exists an arbitrage: we can only use no-arbitrage principal when d + c < R < u + c")
   } else {
     up.move <- (u * S) + (c * S)
     down.move <- (d * S) + (c * S)
@@ -41,7 +40,14 @@ OnePeriod <- function(S, u, R, c = 0, strike, call) {
   return(output)
 }
 
-MultiPeriod <- function()
+OnePeriod(100, 1.08, 1.1, strike = 90, call = T)
+
+MultiPeriod <- function(orig, n, u, R, c = 0, strike, call) {
+  # draw NA filled matrix to visualize the lattice
+  binom.lattice <- matrix(nrow = (n + 2), ncol = (n + 2))
+  
+  # now calculate with a loop and fill in as you go
+}
 
 BlackScholes <- function(S, r, u, n, sigma, maturity, strike, c = 0) {
   
@@ -58,4 +64,3 @@ BlackScholes <- function(S, r, u, n, sigma, maturity, strike, c = 0) {
   
   
 }
-
