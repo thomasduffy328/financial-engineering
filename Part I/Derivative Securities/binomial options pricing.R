@@ -1,7 +1,7 @@
-one_period <- function(S, u, R, c = 0, strike, call) {
+OnePeriod <- function(S, u, R, c = 0, strike, call) {
   
-  up_move   <- 0
-  down_move <- 0
+  up.move   <- 0
+  down.move <- 0
   output <- list()
   d <- 1/u
   q <- (R - d - c)/(u - d)
@@ -11,30 +11,51 @@ one_period <- function(S, u, R, c = 0, strike, call) {
     # change this to throw an error
     output[1] <- "There exists an arbitrage"
   } else {
-    up_move <- (u * S) + (c * S)
-    down_move <- (d * S) + (c * S)
+    up.move <- (u * S) + (c * S)
+    down.move <- (d * S) + (c * S)
     if(call == T) {
-      up_payoff <- max(up_move - strike, 0)
-      down_payoff <- max(down_move - strike, 0)
+      up.payoff <- max(up.move - strike, 0)
+      down.payoff <- max(down.move - strike, 0)
     } else {
-      up_payoff <- max(0, strike - up_move)
-      down_payoff <- max(0, strike - down_move)
+      up.payoff <- max(0, strike - up.move)
+      down.payoff <- max(0, strike - down.move)
     }
-    price <- (1/R) * (q * (up_payoff) + (1 - q) * (down_payoff))   
-    output[1] <- up_move
-    output[2] <- up_payoff
-    output[3] <- down_move
-    output[4] <- down_payoff
+    price <- (1/R) * (q * (up.payoff) + (1 - q) * (down.payoff))   
+    output[1] <- up.move
+    output[2] <- up.payoff
+    output[3] <- down.move
+    output[4] <- down.payoff
     output[5] <- price
     # should we exercise early?
     if(call == T) {
       output[6] <- price <  S - strike
+      output[7] <- max(S - strike, price)
     } else {
       output[6] <- price < strike - S
+      output[7] <- max(strike - S, price)
     }
     names(output) <- c("Up Move", "Up Pay Off", 
                        "Down Move", "Down Pay Off", "Price",
-                       "Exercise Early?")
+                       "Exercise Early?", "Value")
   }
   return(output)
 }
+
+MultiPeriod <- function()
+
+BlackScholes <- function(S, r, u, n, sigma, maturity, strike, c = 0) {
+  
+  d <- 1/u
+  d1 <- (log(S/strike) + ((r - c + sigma^2)/2) * maturity/sigma * sqrt(maturity))
+  d2 <- d1 - sigma * sqrt(maturity)
+  delta.t <- maturity/n
+  q <- (e^((r - c) * (r/n)) - d)/(u - d)
+  
+  # need to add N(d1) and N(d2) in below
+  call.price <- S * 1/(e^(c * maturity)) - strike * 1/(e^(r * maturity))
+  # using put-call parity, we can calculate the put option price
+  put.price <- call.price + strike * 1/(e^(r * maturity)) - S * 1/(e^(c * maturity))
+  
+  
+}
+
