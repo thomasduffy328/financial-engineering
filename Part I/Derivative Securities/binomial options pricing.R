@@ -38,8 +38,3 @@ one_period <- function(S, u, R, c = 0, strike, call) {
   }
   return(output)
 }
-
-# test case
-one_period(S = 87.34, u = 1.07, R = 1.01, strike = 100, call = F)
-
-
