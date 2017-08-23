@@ -25,13 +25,18 @@ netPresentValue <- function(flows, n, r) {
   # calculate the net present value, npv, of a stream
   # of cash flows, flows, for n periods
   # assumes fixed interest rate, r
-  npv <- 0
+  if(mode(flows) == "numeric") {
+    # here we're accounting for fixed cash flow
+    flows <- rep(flows, n)
+  }
   if(n != length(flows)) {
     stop("There must be as many cash flows as periods")
   } else {
-    for(i in 1:n) {
-      npv = npv + (flows[i] * pvFactor(i,r))
+    values <- vector("numeric", n)
+    for(i in 0:(n-1)) {
+      values[i + 1] <- flows[i + 1] * pvFactor(i, r)
     }
+    npv <- sum(values)
   }
   return(npv)
 }
