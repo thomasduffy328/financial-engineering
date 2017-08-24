@@ -53,4 +53,14 @@ PresentValue <- function(flows, rb, rl, N) {
   }
 }
 
+ForwardPrice <- function(S, r, n, compounded = 1) {
+  # calculates forward price of an asset, S
+  # given an annual interest rate, r, that
+  # is compounded n periods 
+  # compounded: amount of times compounded per year
+  fprice <- S * (1 + r/compounded)^n
+  value  <- S - fprice
+  output <- list('Forward Price' = fprice, 'Value' = value)
+  return(output)
+}
 
