@@ -55,7 +55,6 @@ MortgagePV <- function(M, c, r, n) {
   return(fv) 
 }
 
-# only thing that doesn't come out accurately is the payment field
 CashFlows <- function(M, c, r, n) {
   
   payment <- FindPayment(M, c/12, n)
