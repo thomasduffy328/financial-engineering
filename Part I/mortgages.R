@@ -43,6 +43,8 @@ PaymentBreakdown <- function(M, c, n, k) {
   return(output)
 }
 
+PaymentBreakdown(100, .01, 10, 2)[[1]]
+
 MortgagePV <- function(M, c, r, n) {
   # assuming a deterministic situation with NO defaults or prepayments
   # calculate the fair mortgage value, fv, of a mortgage, M, in an 
@@ -53,25 +55,28 @@ MortgagePV <- function(M, c, r, n) {
   return(fv) 
 }
 
-# we can use the below function to return a data frame that closely follows
-# their Excel sheet
+# only thing that doesn't come out accurately is the payment field
 CashFlows <- function(M, c, r, n) {
-  payment <- FindPayment(M, c, n)
-  df <- data.frame(Month = NA, 'BeginningBalLeft' = NA, 'Payment' = NA,
-                   'InterestPaid' = NA, 'PrincipalPaid' = NA, 'EndBalLeft' = NA)
-  month.count <- 1
   
-  while(month.count < n) {
-    df$BeginningBalLeft[month.count] <- BalanceLeft(M, c, )
-    
-    
-    month.count <- month.count + 1
+  payment <- FindPayment(M, c/12, n)
+  df <- data.frame(BeginningBalLeft = rep(NA,n), Payment = NA,
+                   InterestPaid = NA, PrincipalPaid = NA)
+  df[1,] <- c(M, payment, PaymentBreakdown(M, c/12, n, 1)[[2]], 
+              PaymentBreakdown(M, c/12, n, 1)[[1]])
+  i <- 2
+  while(i < n) {
+    df$BeginningBalLeft[i] <- BalanceLeft(M, c/12, n, i)
+    df$PrincipalPaid[i] <- PaymentBreakdown(M, c/12, n, i)[[1]]
+    df$InterestPaid[i] <- PaymentBreakdown(M, c/12, n, i)[[2]]
+    i <- i + 1
   }
-  
   df$Payment <- payment
-    
+  
+  return(df)
 }
 
-# Prepayment Risk --------------------------
+# test case from spreadsheet
+CashFlows(M = 100000, c = .08125, r = .08125, n = 360)
 
+# Prepayment Risk --------------------------
 
