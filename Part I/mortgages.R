@@ -1,3 +1,6 @@
+# MAKE SURE TO FIX ALL THE COUPON RATES 
+# confusion of monthly v. annual in some places
+
 # Amortization --------------------------
 
 BalanceLeft <- function(M, c, n, k) {
@@ -11,8 +14,9 @@ BalanceLeft <- function(M, c, n, k) {
 
 FindPayment <- function(M, c, n) {
   # solve for fixed payment of a mortgage, M, amortizing over n periods
-  # with fixed coupon rate, c
+  # with fixed annual coupon rate, c
   
+  c <- (c/12)
   payment <- ((c * (1 + c)^n)*M)/((1 + c)^n - 1)
   return(payment)
 }
@@ -36,6 +40,7 @@ MortgagePV <- function(M, c, r, n) {
   # environment with interest rate, r, and coupon rate, c
   # after n periods of payment
   
+  c <- (c/12)
   fv <- (c * (1 + c)^n * M)/((1 + c)^n - 1) * ((1 + r)^n - 1)/(r * (1 + r)^n)
   return(fv) 
 }
@@ -88,7 +93,9 @@ CPR <- function(PSA, t) {
 
 # Mortgage Backed Securities --------------------
 
-MBSPassThru <- function(bal, c, r, payment, seasoning, term, PSA) {
+MBSPassThru <- function(bal, c, r, seasoning, term, PSA) {
+  # construct a data frame denoting the flows of a Pass Through MBS
+  # where we define the following variables
   # seasoning = how old the mortgage pool currently is
   # bal = init balancy
   # c = monthly interest paid in by mortgage holders to the institution
@@ -102,15 +109,16 @@ MBSPassThru <- function(bal, c, r, payment, seasoning, term, PSA) {
   for(i in 1:term) {
     CPRvec[i] <- CPR(PSA, t = seasoning + i)
   }
+  initpayment <- FindPayment(bal, c, term)
   initholdpay <- bal * (c/12)
   initinvpay  <- bal * (r/12)
-  initprepay  <- (bal - (payment - initholdpay)) * SMM(CPRvec[1])
-  df <- data.frame(CPR = CPRvec, SMM = SMM(CPRvec), BeginBal = bal, Payment = payment, 
+  initprepay  <- (bal - (initpayment - initholdpay)) * SMM(CPRvec[1])
+  df <- data.frame(CPR = CPRvec, SMM = SMM(CPRvec), BeginBal = bal, Payment = initpayment, 
                    HolderGets = initholdpay, InvestorGets = initinvpay, 
-                   PrincipalPaid = payment - initholdpay, 
+                   PrincipalPaid = initpayment - initholdpay, 
                    Prepayment = initprepay, 
-                   TotalPrincipalPaid = initprepay + (payment - initholdpay), 
-                   EndBal = bal - (initprepay + (payment- initholdpay)))
+                   TotalPrincipalPaid = initprepay + (initpayment - initholdpay), 
+                   EndBal = bal - (initprepay + (initpayment- initholdpay)))
   
     for(i in 2:term) {
     df$BeginBal[i]           <- df$EndBal[i - 1]
@@ -128,20 +136,23 @@ MBSPassThru <- function(bal, c, r, payment, seasoning, term, PSA) {
   apply(X = df, MARGIN = 2, FUN = round, digits = 4)
   return(df)
 }
+# you might notice when using this that the values are slightly off from their spreadsheet
+# this is only due to the fact that they round the values as they go along
 
-# test case from spreadsheet
-# MBSPassThru(400, .08125, .075, 2.984, 3, 360, 1)
-
-PrincipalPV <- function(M, c, r, n) {
+PrincipalPV <- function(MBS, cashrate) {
   # determine the present value of all principal payments related to a 
-  # portfolio of mortgages with value at t = 0 of M
-  # where c & r are the fixed coupon & interest rates 
-  # and n is the term 
-  
-  V0 <- ((c * M)/((1 + c)^n - 1)) * (((1 + r)^n - (1 + c)^n)/((r-c) * (1 + r)^n))
-  return(V0)
+  # portfolio of mortgages in an input MBS, built as a data frame
+  # e.g. from the above function MBSPassThru
+  # where cashrate = interest rate related to the cash flows
+
+  principal.pv <- 0
+  for(i in 1:nrow(MBS)) {
+    principal.pv <- principal.pv + (MBS$TotalPrincipalPaid[i] * ((1 + cashrate/12)^(-i)))
+  }
+  return(principal.pv)
 }
 
+# change to receive data frame as input from MBSPassThru
 InterestPV <- function(M, c, r, n) {
   # returns the present value of all interest payments related to a 
   # portfolio of mortgages 
@@ -149,13 +160,61 @@ InterestPV <- function(M, c, r, n) {
   # and principal payments, use this sum to determine value of interest payments
   # where M is value of mortgages at t=0, c & r the fixed coupon & interest rates
   # and n is the term
-  
+  c <- (c/12)
   return(MortgagePV(M, c, r, n) - PrincipalPV(M, c, r, n))
 }
 
-# you can also use the PaymentBreakdown() function to do something similar
-# perhaps that would be faster in computing the PV of a vector?
-
-
+AverageLife <- function(MBS) {
+  # determines the average life of a data frame MBS object
+  # as created by above function MBSPassThru()
   
+  life <- crossprod((1:nrow(MBS)), MBS$TotalPrincipalPaid)/(12 * sum(MBS$TotalPrincipalPaid))
+  return(life)
+}
+
+# you need to test the below 
+Duration <- function(M, c, r, n, principal) {
+  # computes the duration of a stream of principal or interest payments 
+  # for a pool of Mortgages with fair value at t=0, M, and a fixed coupon
+  # rate, c, and interest rate, r, over a total of n periods
+  # ASSUMES no prepayments
+  
+  principal.stream   <- 0
+  principal.duration <- 0
+  interest.stream    <- 0
+  interest.duration  <- 0
+    
+  if(principal == T) {
+    for(i in 1:n) {
+      principal.stream <- principal.stream + ((i * PaymentBreakdown(M,c,n,i)[[1]])/((1+r)^i))
+    }
+    principal.duration <- principal.stream * ((12 * PrincipalPV(M,c,r,n))^(-1)) 
+    return(principal.duration)
+  } else {
+    for(i in 1:n) {
+      interest.stream <- interest.stream + ((i * PaymentBreakdown(M,c,n,i)[[2]])/((1+r)^i))
+    }
+    interest.duration <- interest.stream * ((12 * InterestPV(M,c,r,n))^(-1))
+    return(interest.duration)
+  }
+} 
+
+# these are, frankly, extra credit
+SequentialPayCMO <- function(M, c, n, ntranches, breakdown) {
+  
+  # this function is heavily reliant on the work of MBSPassThru()
+  # as we're building a CMO on-top of the pass through MBS that gets constructed there
+  
+  # initialize tranch vectors
+  for(i in 1:ntranches) {
+    assign(paste("tranche.", letters[i], sep = ""),0)
+  }
+}
+
+CPR.RichardRoll <- function() {
+  # built from Richard & Roll (1989) model
+  # paper located here: http://www.anderson.ucla.edu/documents/areas/fac/finance/1989-1.pdf 
+  
+  # CPRk = refinancing incentive * seasoning multiplier * monthly multiplier * burnout multiplier
+}
 
