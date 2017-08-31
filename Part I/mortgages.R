@@ -1,22 +1,24 @@
 # MAKE SURE TO FIX ALL THE COUPON RATES 
 # confusion of monthly v. annual in some places
+# also check to see if vectorization anywhere is faster than looping  
 
 # Amortization --------------------------
 
 BalanceLeft <- function(M, c, n, k) {
   # tells us the value of outstanding mortgage principal on a mortgage M
-  # after k periods of the n total periods
+  # after k periods of the n total months
   # with fixed coupon rate, c
   
+  c  <- (c/12)
   Mk <- M * ((1 + c)^n - (1 + c)^k)/((1 + c)^n - 1)
   return(Mk)
 }
 
-FindPayment <- function(M, c, n) {
-  # solve for fixed payment of a mortgage, M, amortizing over n periods
+FindPayment <- function(M, c, n, months = T) {
+  # solve for fixed payment of a mortgage, M, amortizing over n months
   # with fixed annual coupon rate, c
   
-  c <- (c/12)
+  c       <- (c/12)
   payment <- ((c * (1 + c)^n)*M)/((1 + c)^n - 1)
   return(payment)
 }
@@ -25,22 +27,22 @@ PaymentBreakdown <- function(M, c, n, k) {
   # finds the breakdown of a particular payment
   # into the components of interest payment and 
   # principal payment for a mortgage, M, and a 
-  # fixed coupon rate, c, where n is the total number of periods
+  # fixed coupon rate, c, where n is the total number of months
   # and we want the breakdown for the kth period
     
   principal <- FindPayment(M, c, n) - c * BalanceLeft(M, c, n, k-1) 
-  interest <- c * BalanceLeft(M, c, n, k-1)
-  output <- list(Principal = principal, Interest = interest)
+  interest  <- c * BalanceLeft(M, c, n, k-1)
+  output    <- list(Principal = principal, Interest = interest)
   return(output)
 }
 
-MortgagePV <- function(M, c, r, n) {
+MortgagePV <- function(M, c, r, n, months = T) {
   # assuming a deterministic situation with NO defaults or prepayments
   # calculate the fair mortgage value, fv, of a mortgage, M, in an 
   # environment with interest rate, r, and coupon rate, c
   # after n periods of payment
   
-  c <- (c/12)
+  c  <- (c/12)
   fv <- (c * (1 + c)^n * M)/((1 + c)^n - 1) * ((1 + r)^n - 1)/(r * (1 + r)^n)
   return(fv) 
 }
@@ -50,26 +52,23 @@ CashFlows <- function(M, c, r, n) {
   # interest & init balance paid per month for a mortgage, M, 
   # over n months, with fixed coupon rate, c, and fixed interest
   # rate, r
+  # assumes no prepayment
   
-  payment <- FindPayment(M, c/12, n)
-  # initialize a data frame to fill
-  df <- data.frame(BeginningBalLeft = rep(NA,n), Payment = NA,
+  payment <- FindPayment(M, c, n)
+  df      <- data.frame(BeginningBalLeft = rep(NA,n), Payment = NA,
                    InterestPaid = NA, PrincipalPaid = NA)
-  df[1,] <- c(M, payment, PaymentBreakdown(M, c/12, n, 1)[[2]], 
-              PaymentBreakdown(M, c/12, n, 1)[[1]])
+  df[1,]  <- c(M, payment, PaymentBreakdown(M, c, n, 1)[[2]], 
+              PaymentBreakdown(M, c, n, 1)[[1]])
   i <- 2
   while(i < n) {
-    df$BeginningBalLeft[i] <- BalanceLeft(M, c/12, n, i)
-    df$PrincipalPaid[i] <- PaymentBreakdown(M, c/12, n, i)[[1]]
-    df$InterestPaid[i] <- PaymentBreakdown(M, c/12, n, i)[[2]]
+    df$BeginningBalLeft[i] <- BalanceLeft(M, c, n, i)
+    df$PrincipalPaid[i] <- PaymentBreakdown(M, c, n, i)[[1]]
+    df$InterestPaid[i] <- PaymentBreakdown(M, c, n, i)[[2]]
     i <- i + 1
   }
   df$Payment <- payment
   return(df)
 }
-
-# test case from spreadsheet
-# CashFlows(M = 100000, c = .08125, r = .08125, n = 360)
 
 # Prepayment Risk --------------------------
 
@@ -91,6 +90,14 @@ CPR <- function(PSA, t) {
   }
 }
 
+CPR.RichardRoll <- function() {
+  # built from Richard & Roll (1989) model
+  # paper located here: http://www.anderson.ucla.edu/documents/areas/fac/finance/1989-1.pdf 
+  
+  # CPRk = refinancing incentive * seasoning multiplier * monthly multiplier * burnout multiplier
+}
+
+
 # Mortgage Backed Securities --------------------
 
 MBSPassThru <- function(bal, c, r, seasoning, term, PSA) {
@@ -98,11 +105,11 @@ MBSPassThru <- function(bal, c, r, seasoning, term, PSA) {
   # where we define the following variables
   # seasoning = how old the mortgage pool currently is
   # bal = init balancy
-  # c = monthly interest paid in by mortgage holders to the institution
-  # r = monthly interest paid out by mortgage holders to investors
+  # c = annual interest paid in by mortgage holders to the institution
+  # r = annual interest paid out by mortgage holders to investors
   # c > r b/c the institution assuming the risk has to be compensated (and for fees)
   # payment = init monthly payment
-  # term = length of underlying mortgage(s)
+  # term = length of underlying mortgage(s) in months
   # PSA = multiplier for PSA 
   
   CPRvec <- vector("numeric")
@@ -115,8 +122,7 @@ MBSPassThru <- function(bal, c, r, seasoning, term, PSA) {
   initprepay  <- (bal - (initpayment - initholdpay)) * SMM(CPRvec[1])
   df <- data.frame(CPR = CPRvec, SMM = SMM(CPRvec), BeginBal = bal, Payment = initpayment, 
                    HolderGets = initholdpay, InvestorGets = initinvpay, 
-                   PrincipalPaid = initpayment - initholdpay, 
-                   Prepayment = initprepay, 
+                   PrincipalPaid = initpayment - initholdpay, Prepayment = initprepay, 
                    TotalPrincipalPaid = initprepay + (initpayment - initholdpay), 
                    EndBal = bal - (initprepay + (initpayment- initholdpay)))
   
@@ -136,32 +142,25 @@ MBSPassThru <- function(bal, c, r, seasoning, term, PSA) {
   apply(X = df, MARGIN = 2, FUN = round, digits = 4)
   return(df)
 }
-# you might notice when using this that the values are slightly off from their spreadsheet
-# this is only due to the fact that they round the values as they go along
 
 PrincipalPV <- function(MBS, cashrate) {
   # determine the present value of all principal payments related to a 
   # portfolio of mortgages in an input MBS, built as a data frame
-  # e.g. from the above function MBSPassThru
+  # e.g. from the above function MBSPassThru()
   # where cashrate = interest rate related to the cash flows
 
-  principal.pv <- 0
-  for(i in 1:nrow(MBS)) {
-    principal.pv <- principal.pv + (MBS$TotalPrincipalPaid[i] * ((1 + cashrate/12)^(-i)))
-  }
+  principal.pv <- sum(MBS$TotalPrincipalPaid * (1 + cashrate/12)^(-(1:nrow(MBS))))
   return(principal.pv)
 }
 
-# change to receive data frame as input from MBSPassThru
-InterestPV <- function(M, c, r, n) {
-  # returns the present value of all interest payments related to a 
-  # portfolio of mortgages 
-  # noting that the PV of a mortgage is the sum of the PV of interest payments
-  # and principal payments, use this sum to determine value of interest payments
-  # where M is value of mortgages at t=0, c & r the fixed coupon & interest rates
-  # and n is the term
-  c <- (c/12)
-  return(MortgagePV(M, c, r, n) - PrincipalPV(M, c, r, n))
+InterestPV <- function(MBS, cashrate) {
+  # determine the present value of all interest payments related to a 
+  # portfolio of mortgages in an input MBS, built as a data frame
+  # e.g. from the above function MBSPassThru()
+  # where cashrate = interest rate related to the cash flows
+  
+  interest.pv <- sum(MBS$InvestorGets * (1 + cashrate/12)^(-(1:nrow(MBS))))
+  return(interest.pv)
 }
 
 AverageLife <- function(MBS) {
@@ -169,10 +168,10 @@ AverageLife <- function(MBS) {
   # as created by above function MBSPassThru()
   
   life <- crossprod((1:nrow(MBS)), MBS$TotalPrincipalPaid)/(12 * sum(MBS$TotalPrincipalPaid))
-  return(life)
+  return(life[1,1])
 }
 
-# you need to test the below 
+# you need to test the below
 Duration <- function(M, c, r, n, principal) {
   # computes the duration of a stream of principal or interest payments 
   # for a pool of Mortgages with fair value at t=0, M, and a fixed coupon
@@ -199,9 +198,7 @@ Duration <- function(M, c, r, n, principal) {
   }
 } 
 
-# these are, frankly, extra credit
 SequentialPayCMO <- function(M, c, n, ntranches, breakdown) {
-  
   # this function is heavily reliant on the work of MBSPassThru()
   # as we're building a CMO on-top of the pass through MBS that gets constructed there
   
@@ -209,12 +206,5 @@ SequentialPayCMO <- function(M, c, n, ntranches, breakdown) {
   for(i in 1:ntranches) {
     assign(paste("tranche.", letters[i], sep = ""),0)
   }
-}
-
-CPR.RichardRoll <- function() {
-  # built from Richard & Roll (1989) model
-  # paper located here: http://www.anderson.ucla.edu/documents/areas/fac/finance/1989-1.pdf 
-  
-  # CPRk = refinancing incentive * seasoning multiplier * monthly multiplier * burnout multiplier
 }
 
