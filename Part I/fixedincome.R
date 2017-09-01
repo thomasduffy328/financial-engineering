@@ -22,33 +22,72 @@ DiscountRate <- function(n, r, peryear = 1) {
   return(1/((1 + (r/peryear))^(n * peryear)))
 }
 
-PresentValue <- function(c, n, r, peryear = 1) {
+PVFactor <- function(n, r) {
+  # calculate the present value factor
+  # for n periods and a fixed interest rate, r
+  
+  return((1+r)^(-n))
+}
+
+PresentValue <- function(c, n, rl, rb) {
+  # returns the present value of a contract of cash flows, c
+  # over n periods with annual lending rate, rl, and 
+  # borrowing rate, rb, (where rl <= rb)
   
   # if not given vector of cash flows, but a fixed cash flow
   if(length(c) != n) {
     c <- rep(c, n)
   }
   # if not given a vector of interest rates, but a fixed int. rate
-  if(length(r) != n) {
-    r <- rep(r, n)
+  if(length(rl) != n) {
+    rl <- rep(rl, n)
   }
-  pv <- sum(c * (1 + r)^(0:(n-1)))
-  return(pv)
+  if(length(rb) != n) {
+    rb <- rep(rb, n)
+  }
+  
+  if(all(rl == rb)) {
+    pv <- sum(c * PVFactor(0:(n-1), rb))
+    return(pv)
+  } else {
+    pvl <- sum(c * PVFactor(0:(n-1), rl))
+    pvb <- sum(c * PVFactor(0:(n-1), rb))
+    output <- list("Upper Bound (rl)" = pvl, "Lower Bound (rb)" = pvb)
+    return(output)
+  }
 }
 
-NPV <- function(A, n, r, compound) {
-  # determines the net present value of A cash flows at t=0
-  # that accrue over n periods (years) and 
-  # with a fixed interest rate, r
-  # and compound is the number of times compounded per year
-  # assumes lending & borrowing rates are equal
+Perpetuity <- function(A, r) {
+  # determine the present value of an annuity
+  # paying A with fixed interest rate, r
   
-  price <- A * DiscountRate(n, r, compound)
+  return(A/r)
+}
+
+Annuity <- function(A, n, r) {
+  # determine the present value of an annuity paying A
+  # for n periods (beginning immediately) with a vector of 
+  # interest rates, r
+  
+  if(length(r) == 1) {
+    r <- rep(r, n)
+  }
+  value <- 0
+  for(i in 0:(n-1)) {
+    value <- value + (A * PVFactor(i, r[i + 1]))
+  }
+  return(value)
+}
+
+FuturePrice <- function(A, n, r, peryear = 1) {
+  # returns the future price of an asset priced 
+  # at A at t = 0 for a time, n periods, in the future
+  # with a fixed interest rate, r
+  
+  price <- A/(DiscountRate(n, r, peryear))
   return(price)
 }
 
-FuturePrice <- function() {
-  
-}
+
 
 # Fixed Income Instruments ----------------
