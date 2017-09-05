@@ -1,7 +1,5 @@
 # Binomial Option Pricing ------------------------
 
-# need to include function to solve for u
-
 OnePeriod <- function(S, u, R, strike, call, c = 0) {
   # calculates the up & down moves on a binomial lattice for a call or put
   # option with strike that yields dividend, c, with R interest rate applied
@@ -11,7 +9,7 @@ OnePeriod <- function(S, u, R, strike, call, c = 0) {
   up.move   <- 0
   down.move <- 0
   d         <- 1/u
-  q         <- (R - d - c)/(u - d) # the risk neutral probability
+  q         <- (R - d - c)/(u - d) # the risk neutral probability of an up-move
   price     <- 0
   
   if((d + c > R) | (R > u + c)) {
@@ -29,14 +27,10 @@ OnePeriod <- function(S, u, R, strike, call, c = 0) {
     }
     price <- (1/R) * (q * (up.payoff) + (1 - q) * (down.payoff))
     # prepare output list
-    output <- list()
-    output[1] <- S
-    output[2] <- up.move
-    output[3] <- up.payoff
-    output[4] <- down.move
-    output[5] <- down.payoff
-    output[6] <- price
-    # should we exercise early?
+    output <- list(S0 = S, 'Up Move' = up.move, 'Up Payoff' = up.payoff,
+                   'Down Move' = down.move, 'Down Payoff' = down.payoff, 
+                   'Price' = price, 'Exercise Early' = vector("logical"),
+                   Value = vector("numeric"))
     if(call == T) {
       output[7] <- price <  S - strike
       output[8] <- max(S - strike, price)
@@ -44,16 +38,15 @@ OnePeriod <- function(S, u, R, strike, call, c = 0) {
       output[7] <- price < strike - S
       output[8] <- max(strike - S, price)
     }
-    names(output) <- c("S0", "Up Move", "Up Pay Off", 
-                       "Down Move", "Down Pay Off", "Price",
-                       "Exercise Early?", "Value")
   }
   return(output)
 }
+OnePeriod(100, 1.04, 1.02, 90, T)
 
-# FIX rounding
+
 # you can also add option to compare value & price at each node
-BinomialLattice <- function(S, n, u, R, strike, call, type = "moves", c = 0) {
+# use the Parameters function below for the examples & quiz, u is not given
+BinomialLattice <- function(S, n, u, R, strike, call, type = "moves", c = 0, digits = 4) {
   # return the binomial lattice for an option on S0 for n periods with a fixed u
   # and interest rate, R, with a set strike option
   # where call if T is a call option else a put option
@@ -92,20 +85,36 @@ BinomialLattice <- function(S, n, u, R, strike, call, type = "moves", c = 0) {
         value.mat[i,j] <- OnePeriod(mat[i,j], u, R, strike, call, c)[[8]]
       }
     }
-    return(value.mat)
+    return(round(value.mat, digits))
   } else if(type == "price") {
     for(j in 1:n) {
       for(i in 1:j) {
         price.mat[i,j] <- OnePeriod(mat[i,j], u, R, strike, call, c)[[6]]
       }
     }
-    return(price.mat)
+    return(round(price.mat, digits))
   } else {
-    return(mat)
+    return(round(mat, digits))
   }
 }
 
 # Black Scholes Pricing -------------------
+
+# rename this function! this name stinks
+OptionParams <- function(n, r, c, maturity, sigma) {
+  # determines the parameter values for a Black-Scholes option pricing model
+  # given n periods, an interest rate, r, a dividend yield, c,
+  # a maturity (in years), and volatility
+  
+  u      <- exp(sigma * sqrt(maturity/n))
+  d      <- 1/u
+  q      <- (exp((r - c) * (maturity/n)) - d)/(u - d)
+  output <- list(u = u, d = d, q = q)
+  return(output)
+}
+
+# test from spreadsheet
+OptionParams(10, .02, .01, .5, .2)
 
 BlackScholes <- function(S, r, u, n, sigma, maturity, strike, c = 0) {
   

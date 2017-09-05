@@ -1,4 +1,4 @@
-# Fixed Income Securities -----------------
+# Fixed Income Instruments -----------------
 
 InterestCalc <- function(A, n, r, compound = T, peryear = 1) {
   # returns the value of an amount A after an accrual of 
@@ -14,12 +14,18 @@ InterestCalc <- function(A, n, r, compound = T, peryear = 1) {
   }
 }
 
-DiscountRate <- function(n, r, peryear = 1) {
-  # determines the discount rate over n periods (years)
+# check this
+DiscountRate <- function(n, r, peryear = 1, continuous = F) {
+  # determines the discount rate over n periods
   # with a fixed annual interest rate of r
   # where peryear is the number of times compounded per year
+  # if continuous == T, calculates the continous discount rate
   
-  return(1/((1 + (r/peryear))^(n * peryear)))
+  if(continuous == F) {
+    return(1/((1 + (r/peryear))^(n * peryear)))
+  } else {
+    return(exp(-r * n))
+  }
 }
 
 PVFactor <- function(n, r) {
@@ -79,15 +85,35 @@ Annuity <- function(A, n, r) {
   return(value)
 }
 
-FuturePrice <- function(A, n, r, peryear = 1) {
-  # returns the future price of an asset priced 
-  # at A at t = 0 for a time, n periods, in the future
-  # with a fixed interest rate, r
+# Linear Pricing ----------------
+
+CashPrice <- function(c, r, t) {
+  # compute linear price of a cash flow that pays c at t=t
+  # and 0 everywhere else
+  # with an annual interest rate,r 
   
-  price <- A/(DiscountRate(n, r, peryear))
-  return(price)
+  return(c * DiscountRate(n = t, r = r))
 }
 
+# check this with an example
+# note that r is a RANDOM quantity, so it is only known at time = k-1 
+# so perhaps you need to build in a randomizer for the r vector
+# because the interest rates WILL NOT be fixed at t=0
+BondPrice <- function(payment, r, n) {
+  if(length(r) == 1) {
+    r <- rep(r, n)
+  }
 
+  payment <- rep(payment, n)
+  pk <- sum(payment * DiscountRate(n, r))
+  print(pk)
+  big.p  <- payment[1] * DiscountRate(n, r[1]) 
+  return(big.p + pk)
+}
 
-# Fixed Income Instruments ----------------
+# at 18:35 the part about Discount rates and forward rates is 
+# an important thing to code
+# likely should use the slides to make it work 
+
+# Forward Contracts -------------
+
